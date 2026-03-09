@@ -5,9 +5,10 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 import os
 from pathlib import Path
 
@@ -77,6 +78,17 @@ activities = {
     }
 }
 
+# In-memory teacher credentials for admin actions.
+teachers = {
+    "mr.johnson": "teach123",
+    "ms.carter": "learn456"
+}
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 
 @app.get("/")
 def root():
@@ -110,9 +122,42 @@ def signup_for_activity(activity_name: str, email: str):
     return {"message": f"Signed up {email} for {activity_name}"}
 
 
+@app.post("/auth/login")
+def login(payload: LoginRequest):
+    """Validate teacher credentials for admin mode."""
+    expected_password = teachers.get(payload.username)
+    if expected_password is None or expected_password != payload.password:
+        raise HTTPException(status_code=401, detail="Invalid teacher credentials")
+
+    return {
+        "message": "Teacher login successful",
+        "role": "teacher",
+        "username": payload.username
+    }
+
+
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(
+    activity_name: str,
+    email: str,
+    x_teacher_username: str | None = Header(default=None),
+    x_teacher_password: str | None = Header(default=None)
+):
     """Unregister a student from an activity"""
+    # Restrict unregister operation to authenticated teachers.
+    if x_teacher_username is None or x_teacher_password is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Only logged-in teachers can remove participants"
+        )
+
+    expected_password = teachers.get(x_teacher_username)
+    if expected_password is None or expected_password != x_teacher_password:
+        raise HTTPException(
+            status_code=403,
+            detail="Only logged-in teachers can remove participants"
+        )
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")

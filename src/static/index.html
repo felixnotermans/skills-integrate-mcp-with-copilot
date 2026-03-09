@@ -8,8 +8,18 @@
   </head>
   <body>
     <header>
-      <h1>Mergington High School</h1>
-      <h2>Extracurricular Activities</h2>
+      <div class="header-content">
+        <div>
+          <h1>Mergington High School</h1>
+          <h2>Extracurricular Activities</h2>
+        </div>
+        <div class="admin-controls">
+          <span id="auth-status" class="auth-status">Student Mode</span>
+          <button id="auth-toggle" class="auth-toggle" type="button" aria-label="Open admin login">
+            User
+          </button>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -44,6 +54,26 @@
     <footer>
       <p>&copy; 2023 Mergington High School</p>
     </footer>
+
+    <div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="modal-content">
+        <h3 id="auth-modal-title">Teacher Login</h3>
+        <form id="auth-form">
+          <div class="form-group">
+            <label for="teacher-username">Username:</label>
+            <input type="text" id="teacher-username" required />
+          </div>
+          <div class="form-group">
+            <label for="teacher-password">Password:</label>
+            <input type="password" id="teacher-password" required />
+          </div>
+          <div class="modal-actions">
+            <button type="submit">Login</button>
+            <button id="auth-cancel" type="button" class="secondary-btn">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>
