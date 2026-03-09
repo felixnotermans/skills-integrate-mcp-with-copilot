@@ -10,14 +10,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const authCancelButton = document.getElementById("auth-cancel");
 
   let teacherSession = null;
+  let messageHideTimeoutId = null;
 
   function showMessage(text, type) {
+    if (messageHideTimeoutId !== null) {
+      clearTimeout(messageHideTimeoutId);
+      messageHideTimeoutId = null;
+    }
+
     messageDiv.textContent = text;
     messageDiv.className = type;
     messageDiv.classList.remove("hidden");
 
-    setTimeout(() => {
+    messageHideTimeoutId = setTimeout(() => {
       messageDiv.classList.add("hidden");
+      messageHideTimeoutId = null;
     }, 5000);
   }
 
@@ -50,6 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML =
+        '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -131,8 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
         {
           method: "DELETE",
           headers: {
-            "X-Teacher-Username": teacherSession.username,
-            "X-Teacher-Password": teacherSession.password,
+            "X-Teacher-Token": teacherSession.token,
           },
         }
       );
@@ -192,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       teacherSession = {
         username,
-        password,
+        token: result.token,
       };
       updateAuthUI();
       closeAuthModal();

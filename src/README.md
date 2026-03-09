@@ -5,7 +5,7 @@ A super simple FastAPI application that allows students to view and sign up for 
 ## Features
 
 - View all available extracurricular activities
-- Sign up for activities
+- Students can sign up for activities
 - Teacher admin mode for removing participants
 
 ## Getting Started
@@ -31,18 +31,32 @@ A super simple FastAPI application that allows students to view and sign up for 
 | Method | Endpoint                                                          | Description                                                         |
 | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
 | GET    | `/activities`                                                     | Get all activities with their details and current participant count |
-| POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Sign up for an activity                                             |
-| POST   | `/auth/login`                                                       | Authenticate teacher/admin mode                                    |
-| DELETE | `/activities/{activity_name}/unregister?email=student@mergington.edu` | Remove a participant (teacher credentials required)             |
+| POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Student self-signup for an activity                                 |
+| POST   | `/auth/login`                                                    | Authenticate teacher/admin mode and receive a short-lived token     |
+| DELETE | `/activities/{activity_name}/unregister?email=student@mergington.edu` | Remove a participant (teacher token required)                  |
 
 ## Teacher Login (Admin Mode)
 
 Use the user button in the top-right corner of the web UI to login as a teacher.
 
-Example in-memory teacher credentials:
+Teacher credentials are loaded from JSON in this order:
 
-- `mr.johnson` / `teach123`
-- `ms.carter` / `learn456`
+- `src/teachers.json` (local, ignored by git)
+- `src/teachers.example.json` (fallback template)
+
+Each user entry contains a `username` and SHA-256 `password_hash`.
+
+To generate a hash for a password:
+
+```bash
+python -c "import hashlib; print(hashlib.sha256('your-password'.encode()).hexdigest())"
+```
+
+After login, use the returned token for privileged requests:
+
+- Header: `X-Teacher-Token: <token>`
+
+The signup endpoint remains open for student self-registration.
 
 ## Data Model
 

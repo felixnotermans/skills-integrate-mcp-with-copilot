@@ -1,0 +1,12 @@
+{
+  "users": [
+    {
+      "username": "teacher1",
+      "password_hash": "f9b0078b5df596d2ea19010c001bbd009e651de2c57ca4f0ddcd1f3f65ce3d0c"
+    },
+    {
+      "username": "teacher2",
+      "password_hash": "c52f1f0f82f070e8f6674f3628ff4d19d642f13a6efec0f7c3f543e9cb4605bc"
+    }
+  ]
+}

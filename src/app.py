@@ -9,6 +9,10 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+import json
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 
@@ -78,16 +82,64 @@ activities = {
     }
 }
 
-# In-memory teacher credentials for admin actions.
-teachers = {
-    "mr.johnson": "teach123",
-    "ms.carter": "learn456"
-}
+# Session duration for teacher admin mode.
+SESSION_DURATION_MINUTES = 60
+
+
+def _load_teacher_password_hashes() -> dict[str, str]:
+    """Load teacher credential hashes from JSON configuration."""
+    base_dir = Path(__file__).parent
+    teachers_file = base_dir / "teachers.json"
+    fallback_file = base_dir / "teachers.example.json"
+    source_file = teachers_file if teachers_file.exists() else fallback_file
+
+    with source_file.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    users = data.get("users", [])
+    return {
+        entry["username"]: entry["password_hash"]
+        for entry in users
+        if "username" in entry and "password_hash" in entry
+    }
+
+
+teacher_password_hashes = _load_teacher_password_hashes()
+
+# In-memory token store for short-lived teacher sessions.
+teacher_sessions: dict[str, dict[str, str | datetime]] = {}
 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+def _create_session_token(username: str) -> str:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=SESSION_DURATION_MINUTES)
+    teacher_sessions[token] = {
+        "username": username,
+        "expires_at": expires_at,
+    }
+    return token
+
+
+def _get_username_from_token(token: str | None) -> str | None:
+    if token is None:
+        return None
+
+    session = teacher_sessions.get(token)
+    if session is None:
+        return None
+
+    expires_at = session["expires_at"]
+    if isinstance(expires_at, datetime) and expires_at < datetime.now(timezone.utc):
+        teacher_sessions.pop(token, None)
+        return None
+
+    username = session.get("username")
+    return username if isinstance(username, str) else None
 
 
 @app.get("/")
@@ -125,14 +177,20 @@ def signup_for_activity(activity_name: str, email: str):
 @app.post("/auth/login")
 def login(payload: LoginRequest):
     """Validate teacher credentials for admin mode."""
-    expected_password = teachers.get(payload.username)
-    if expected_password is None or expected_password != payload.password:
+    expected_hash = teacher_password_hashes.get(payload.username)
+    provided_hash = hashlib.sha256(payload.password.encode("utf-8")).hexdigest()
+    if expected_hash is None or expected_hash != provided_hash:
         raise HTTPException(status_code=401, detail="Invalid teacher credentials")
+
+    token = _create_session_token(payload.username)
 
     return {
         "message": "Teacher login successful",
         "role": "teacher",
-        "username": payload.username
+        "username": payload.username,
+        "token": token,
+        "token_type": "bearer",
+        "expires_in": SESSION_DURATION_MINUTES * 60,
     }
 
 
@@ -140,21 +198,13 @@ def login(payload: LoginRequest):
 def unregister_from_activity(
     activity_name: str,
     email: str,
-    x_teacher_username: str | None = Header(default=None),
-    x_teacher_password: str | None = Header(default=None)
+    x_teacher_token: str | None = Header(default=None)
 ):
     """Unregister a student from an activity"""
     # Restrict unregister operation to authenticated teachers.
-    if x_teacher_username is None or x_teacher_password is None:
+    if _get_username_from_token(x_teacher_token) is None:
         raise HTTPException(
-            status_code=403,
-            detail="Only logged-in teachers can remove participants"
-        )
-
-    expected_password = teachers.get(x_teacher_username)
-    if expected_password is None or expected_password != x_teacher_password:
-        raise HTTPException(
-            status_code=403,
+            status_code=401,
             detail="Only logged-in teachers can remove participants"
         )
 
