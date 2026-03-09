@@ -41,3 +41,6 @@ __pycache__
 
 # Env files
 .env
+
+# Local teacher credentials for admin mode
+src/teachers.json
